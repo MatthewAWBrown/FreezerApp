@@ -13,6 +13,18 @@ class MainPage extends StatefulWidget {
 class _MainPageState extends State<MainPage> {
   @override
   Widget build(BuildContext context) {
-    return const Placeholder();
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Freezer App'),
+        centerTitle: true,
+        backgroundColor: Colors.lightBlue[200]
+      ),
+      backgroundColor: Colors.lightBlue[100],
+      body: Center(
+        child: SearchBar(
+          hintText: 'Search Freezer Inventory',
+        )
+      )
+    );
   }
 }
