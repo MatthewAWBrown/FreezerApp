@@ -23,6 +23,17 @@ class EditItemScreen extends StatefulWidget {
 
 class _EditItemScreenState extends State<EditItemScreen> {
 
+  String? validateInput(String input) {
+    if (input.isEmpty) {
+      return 'Please enter an amount';
+    }
+    int? intValue = int.tryParse(input);
+    if (intValue == null || intValue <= 0) {
+      return 'Please enter a non-negative whole number';
+    }
+    return null;
+  }
+
   TextEditingController _titleController=TextEditingController();
   TextEditingController _countController = TextEditingController();
 
@@ -66,6 +77,7 @@ class _EditItemScreenState extends State<EditItemScreen> {
               padding: const EdgeInsets.all(15),
               child: TextField(
                 controller: _countController,
+                keyboardType: TextInputType.number,
                 decoration: const InputDecoration(
                   hintText: 'Amount',
                   floatingLabelBehavior: FloatingLabelBehavior.always,
@@ -74,6 +86,13 @@ class _EditItemScreenState extends State<EditItemScreen> {
             ),
             ElevatedButton(
                 onPressed: () async {
+                  String? validationMessage = validateInput(_countController.text);
+                  if (validationMessage != null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(validationMessage)),
+                    );
+                    return;
+                  }
                   await invenProvider.updateTitle(
                     widget.id,
                     _titleController.text,

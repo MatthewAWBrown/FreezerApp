@@ -5,11 +5,18 @@ import '../provider/inven_provider.dart';
 import 'add_item_screen.dart';
 import 'edit_item_screen.dart';
 
-class ShowInvenScreen extends StatelessWidget {
+class ShowInvenScreen extends StatefulWidget {
   const ShowInvenScreen({super.key});
 
   @override
+  State<ShowInvenScreen> createState() => _ShowInvenScreenState();
+}
+
+class _ShowInvenScreenState extends State<ShowInvenScreen> {
+  @override
   Widget build(BuildContext context) {
+
+    // TextEditingController _searchController = TextEditingController();
 
     final width = MediaQuery.of(context).size.width;
     final height = MediaQuery.of(context).size.height;
@@ -27,6 +34,7 @@ class ShowInvenScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Freezer Inventory'),
         actions: [
+          //TODO: Add sort functionality
           IconButton(
             onPressed: () {
               showDialog(
@@ -137,7 +145,7 @@ class ShowInvenScreen extends StatelessWidget {
                             )
                           );
                         } else {
-                          showDialog(
+                          bool deleteConfirmed = await showDialog(
                             useSafeArea: true,
                             context: context,
                             builder: (context) => AlertDialog(
@@ -162,13 +170,17 @@ class ShowInvenScreen extends StatelessWidget {
                               ],
                             ),
                           );
+                          return deleteConfirmed;
                         }
                       },
                       child: Card(
                         child: ListTile(
                           style: ListTileStyle.drawer,
                           title: Text(
-                            helperValue.title
+                            helperValue.title,
+                            style: TextStyle(
+                              fontSize: 18.0,
+                            ),
                           ),
                           subtitle: Text(
                             helperValue.date
@@ -179,14 +191,100 @@ class ShowInvenScreen extends StatelessWidget {
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.exposure_minus_1_outlined),
+                              GestureDetector(
+                                onTap: () async {
+                                  int currentCount = int.tryParse(helperValue.count) ?? 0;
+                                  if (currentCount > 0) {
+                                    helperValue.count = (currentCount - 1).toString();
+                                    await invenProvider.updateCount(helperValue.id, helperValue.count);
+                                    setState(() {
+                                      // idk ¯\_(ツ)_/¯
+                                      helperValue.count;
+                                    });
+                                  } else if (currentCount <= 0) {
+                                    showDialog(
+                                      useSafeArea: true,
+                                      context: context,
+                                      builder: (context) => AlertDialog(
+                                        scrollable: true,
+                                        title: const Text('Delete'),
+                                        content: const Text('Do you want to delete this item?'),
+                                        actions: [
+                                          ElevatedButton(
+                                              onPressed: (){
+                                                invenProvider.deleteById(helperValue.id);
+                                                invenProvider.invenItem.remove(helperValue);
+                                                Navigator.pop(context);
+                                              },
+                                              child: Text('Yes')
+                                          ),
+                                          ElevatedButton(
+                                              onPressed: (){
+                                                Navigator.pop(context);
+                                              },
+                                              child: Text('No')
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }
+                                },
+                                  child: const Icon(
+                                      Icons.exposure_minus_1_outlined,
+                                    color: Colors.red,
+                                  )
+                              ),
                               Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 10.0),
+                                padding: const EdgeInsets.symmetric(horizontal: 25.0),
                                 child: Text(
-                                  helperValue.count
+                                  helperValue.count,
+                                  style: const TextStyle(
+                                    fontSize: 18.0,
+                                  ),
                                 ),
                               ),
-                              Icon(Icons.exposure_plus_1_outlined),
+                              GestureDetector(
+                                onTap: () async {
+                                  int currentCount = int.tryParse(helperValue.count) ?? 0;
+                                  if (currentCount > 0) {
+                                    helperValue.count = (currentCount + 1).toString();
+                                    await invenProvider.updateCount(helperValue.id, helperValue.count);
+                                    setState(() {
+                                      helperValue.count;
+                                    });
+                                  } else if (currentCount >= 0) {
+                                    showDialog(
+                                      useSafeArea: true,
+                                      context: context,
+                                      builder: (context) => AlertDialog(
+                                        scrollable: true,
+                                        title: const Text('Delete'),
+                                        content: const Text('Do you want to delete this item?'),
+                                        actions: [
+                                          ElevatedButton(
+                                              onPressed: (){
+                                                invenProvider.deleteById(helperValue.id);
+                                                invenProvider.invenItem.remove(helperValue);
+                                                Navigator.pop(context);
+                                              },
+                                              child: Text('Yes')
+                                          ),
+                                          ElevatedButton(
+                                              onPressed: (){
+                                                Navigator.pop(context);
+                                              },
+                                              child: Text('No')
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }
+                                },
+                                  child: const Icon(
+                                      Icons.exposure_plus_1_outlined,
+                                    color: Colors.green,
+                                  )
+                              ),
                             ],
                           ),
                         ),

@@ -15,7 +15,7 @@ class DBHelper {
       onCreate: (db, version) {
         db.execute("CREATE TABLE IF NOT EXISTS $inven(id TEXT PRIMARY KEY ,"
           " title TEXT,"
-          " count TEXT,"
+          " count INTEGER CHECK(count >= 0), "
           " date TEXT)");
       },
 
@@ -52,7 +52,7 @@ class DBHelper {
 
     return db.update(
       tableName,
-      {'$columnName':value},
+      {columnName:value},
       where: 'id = ?',
       whereArgs: [id]
     );
@@ -77,7 +77,7 @@ class DBHelper {
 
     final db = await DBHelper.database();
 
-    return db.rawQuery('DELETE FROM ${tableName}');
+    return db.rawQuery('DELETE FROM $tableName');
 
   }
 

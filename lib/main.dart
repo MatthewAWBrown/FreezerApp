@@ -27,7 +27,7 @@ class _MyAppState extends State<MyApp> {
         theme: ThemeData(
           primarySwatch: Colors.lightBlue
         ),
-        home: ShowInvenScreen(),
+        home: const ShowInvenScreen(),
       ),
     );
   }

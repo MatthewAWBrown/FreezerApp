@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../provider/inven_provider.dart';
 
+
 class AddItemScreen extends StatefulWidget {
   const AddItemScreen({super.key});
 
@@ -12,6 +13,17 @@ class AddItemScreen extends StatefulWidget {
 }
 
 class _AddItemScreenState extends State<AddItemScreen> {
+
+  String? validateInput(String input) {
+    if (input.isEmpty) {
+      return 'Please enter an amount';
+    }
+    int? intValue = int.tryParse(input);
+    if (intValue == null || intValue <= 0) {
+      return 'Please enter a non-negative whole number';
+    }
+    return null;
+  }
 
   TextEditingController _titleController=TextEditingController();
   TextEditingController _countController = TextEditingController();
@@ -69,6 +81,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
             padding: EdgeInsets.all(15.0),
             child: TextField(
               controller: _countController,
+              keyboardType: TextInputType.number,
               decoration: InputDecoration(
                 hintText: 'Amount',
               ),
@@ -89,6 +102,13 @@ class _AddItemScreenState extends State<AddItemScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
+              String? validationMessage = validateInput(_countController.text);
+              if (validationMessage != null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(validationMessage)),
+                );
+                return;
+              }
               invenProvider.insertData(
                 _titleController.text,
                 _countController.text,
