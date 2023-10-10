@@ -83,7 +83,7 @@ class _ShowInvenScreenState extends State<ShowInvenScreen> {
                   ),);
             },
             icon: const Icon(
-              Icons.delete_forever_outlined,
+              Icons.menu,
               color: Colors.white,
             )
           ),
@@ -201,7 +201,7 @@ class _ShowInvenScreenState extends State<ShowInvenScreen> {
                                       // idk ¯\_(ツ)_/¯
                                       helperValue.count;
                                     });
-                                  } else if (currentCount <= 0) {
+                                  } else if (currentCount == 0) {
                                     showDialog(
                                       useSafeArea: true,
                                       context: context,
@@ -246,38 +246,12 @@ class _ShowInvenScreenState extends State<ShowInvenScreen> {
                               GestureDetector(
                                 onTap: () async {
                                   int currentCount = int.tryParse(helperValue.count) ?? 0;
-                                  if (currentCount > 0) {
+                                  if (currentCount >= 0) {
                                     helperValue.count = (currentCount + 1).toString();
                                     await invenProvider.updateCount(helperValue.id, helperValue.count);
                                     setState(() {
                                       helperValue.count;
                                     });
-                                  } else if (currentCount >= 0) {
-                                    showDialog(
-                                      useSafeArea: true,
-                                      context: context,
-                                      builder: (context) => AlertDialog(
-                                        scrollable: true,
-                                        title: const Text('Delete'),
-                                        content: const Text('Do you want to delete this item?'),
-                                        actions: [
-                                          ElevatedButton(
-                                              onPressed: (){
-                                                invenProvider.deleteById(helperValue.id);
-                                                invenProvider.invenItem.remove(helperValue);
-                                                Navigator.pop(context);
-                                              },
-                                              child: Text('Yes')
-                                          ),
-                                          ElevatedButton(
-                                              onPressed: (){
-                                                Navigator.pop(context);
-                                              },
-                                              child: Text('No')
-                                          ),
-                                        ],
-                                      ),
-                                    );
                                   }
                                 },
                                   child: const Icon(
