@@ -30,6 +30,12 @@ class DBHelper {
     return db.query(table);
   }
 
+  static Future<List<Map<String, dynamic>>>search(String table, String searchText) async {
+    final db = await DBHelper.database();
+
+    return db.query(table, where: 'title LIKE ?', whereArgs: ['%$searchText%']);
+  }
+
   static Future insert(String table, Map<String, Object>data) async {
 
     final db = await DBHelper.database();

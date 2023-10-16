@@ -24,6 +24,21 @@ class InvenProvider extends ChangeNotifier{
     notifyListeners();
   }
 
+  Future<void> search(String searchText) async {
+    final dataList = await DBHelper.search(DBHelper.inven, searchText);
+
+    invenItem=dataList
+      .map(
+        (item) => InvenModel(
+          id: item['id'],
+          title: item['title'],
+          count: item['count'],
+          date: item['date'],
+        ),
+    ).toList();
+    notifyListeners();
+  }
+
   Future insertData(
       String title,
       String count,
