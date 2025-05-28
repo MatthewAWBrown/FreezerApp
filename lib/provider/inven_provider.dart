@@ -23,7 +23,7 @@ class InvenProvider extends ChangeNotifier {
       final result = await operation();
       return result;
     } catch (e) {
-      _errorMessage = errorMessage ?? "an error occured: $e";
+      _errorMessage = errorMessage ?? "an error occurred: $e";
       rethrow;
     } finally {
       _isLoading = false;
