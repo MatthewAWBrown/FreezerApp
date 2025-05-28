@@ -5,12 +5,12 @@ import '../provider/inven_provider.dart';
 
 class EditItemScreen extends StatefulWidget {
   const EditItemScreen({
-    Key? key,
+    super.key,
     required this.id,
     required this.title,
     required this.count,
     required this.date
-    }) : super(key: key);
+    });
 
   final String id;
   final String title;
@@ -34,8 +34,8 @@ class _EditItemScreenState extends State<EditItemScreen> {
     return null;
   }
 
-  TextEditingController _titleController=TextEditingController();
-  TextEditingController _countController = TextEditingController();
+  final TextEditingController _titleController=TextEditingController();
+  final TextEditingController _countController = TextEditingController();
 
   @override
   void initState() {

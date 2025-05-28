@@ -17,13 +17,13 @@ class _ShowInvenScreenState extends State<ShowInvenScreen> {
   @override
   Widget build(BuildContext context) {
 
-    TextEditingController _searchController = TextEditingController();
+    TextEditingController searchController = TextEditingController();
 
     final width = MediaQuery.of(context).size.width;
     final height = MediaQuery.of(context).size.height;
     final invenP = Provider.of<InvenProvider>(context, listen: false);
 
-    FocusNode _focusNode = FocusNode();
+    FocusNode focusNode = FocusNode();
 
     return Scaffold(
       floatingActionButton: FloatingActionButton(
@@ -55,7 +55,7 @@ class _ShowInvenScreenState extends State<ShowInvenScreen> {
                                 child: ElevatedButton(
                                   style: ElevatedButton.styleFrom(backgroundColor: Colors.white),
                                   onPressed: () async {
-                                    await invenP.deleteTable();
+                                    await invenP.clearInventoryTable();
                                     Navigator.pop(context);
                                   }, child: Text('Yes',
                                     style: TextStyle(
@@ -99,22 +99,22 @@ class _ShowInvenScreenState extends State<ShowInvenScreen> {
               Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: TextField(
-                  focusNode: _focusNode,
-                  controller: _searchController,
+                  focusNode: focusNode,
+                  controller: searchController,
                   decoration: const InputDecoration(
                     prefixIcon: Icon(Icons.search),
                     hintText: 'Search...'
                   ),
                   onChanged: (value) {
                     // Handle search text changes
-                    invenP.search(value);
+                    invenP.searchInventory(value);
                   },
                 ),
               ),
               Expanded(
                 child: GestureDetector(
                   onTap: () {
-                    _focusNode.unfocus();
+                    focusNode.unfocus();
                   },
                   child: FutureBuilder(
                   future: Provider.of<InvenProvider>(context, listen: false).selectData(),

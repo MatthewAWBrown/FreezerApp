@@ -25,9 +25,9 @@ class _AddItemScreenState extends State<AddItemScreen> {
     return null;
   }
 
-  TextEditingController _titleController=TextEditingController();
-  TextEditingController _countController = TextEditingController();
-  TextEditingController _dateController=TextEditingController(
+  final TextEditingController _titleController=TextEditingController();
+  final TextEditingController _countController = TextEditingController();
+  final TextEditingController _dateController=TextEditingController(
     text: DateFormat('yyyy-MM-dd').format(DateTime.now()),
   );
 

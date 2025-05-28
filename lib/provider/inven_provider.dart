@@ -4,112 +4,206 @@ import 'package:uuid/uuid.dart';
 import '../model/inven_model.dart';
 import '../db_helper/db_helper.dart';
 
-class InvenProvider extends ChangeNotifier{
+class InvenProvider extends ChangeNotifier {
+  final _uuid = const Uuid();
+  List<InvenModel> invenItems = [];
 
-  List<InvenModel> invenItem = [];
+  bool _isLoading = false;
+  String? _errorMessage;
 
-  Future<void>selectData()async{
+  bool get isLoading => _isLoading;
+  String? get errorMessage => _errorMessage;
 
-    final dataList = await DBHelper.selectAll(DBHelper.inven);
-
-    invenItem=dataList
-      .map(
-        (item) => InvenModel(
-            id: item['id'],
-            title: item['title'],
-            count: item['count'],
-            date: item['date'],
-        ),
-    ).toList();
+  Future<T> _executeDbOperation<T>(Future<T> Function() operation, {String? successMessage, String? errorMessage}) async {
+    _isLoading = true;
+    _errorMessage = null;
     notifyListeners();
+
+    try {
+      final result = await operation();
+      return result;
+    } catch (e) {
+      _errorMessage = errorMessage ?? "an error occured: $e";
+      rethrow;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
-  Future<void> search(String searchText) async {
-    final dataList = await DBHelper.search(DBHelper.inven, searchText);
+  Future<void> fetchInventoryItems() async {
+    try {
+      _isLoading = true;
+      _errorMessage = null;
+      notifyListeners();
 
-    invenItem=dataList
-      .map(
-        (item) => InvenModel(
-          id: item['id'],
-          title: item['title'],
-          count: item['count'],
-          date: item['date'],
-        ),
-    ).toList();
-    notifyListeners();
+      final dataList = await DBHelper.instance.selectAll();
+      invenItems = dataList.map((item) => InvenModel.fromMap(item)).toList();
+    } catch (e) {
+      _errorMessage = "Failed to load inventory: $e";
+      invenItems = []; // clear items on error
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
-  Future insertData(
-      String title,
-      String count,
-      String date,
-  ) async {
+  Future<void> searchInventory(String searchText) async {
+    try {
+      _isLoading = true;
+      _errorMessage = null;
+      notifyListeners();
 
-    final newInven = InvenModel(
-        id: const Uuid().v1(),
-        title: title,
-        count: count,
-        date: date
+      final dataList = await DBHelper.instance.search(searchText);
+      invenItems = dataList.map((item) => InvenModel.fromMap(item)).toList();
+    } catch (e) {
+      _errorMessage = "Failed to search inventory: $e";
+      // invenItems = [];
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> addInventoryItem({
+    required String title,
+    required int count,
+    required DateTime date,
+}) async {
+    final newItem = InvenModel(
+      id: _uuid.v4(),
+      title: title,
+      count: count,
+      date: date,
     );
-    invenItem.add(newInven);
 
-    DBHelper.insert(DBHelper.inven, {
-      'id': newInven.id,
-      'title': newInven.title,
-      'count': newInven.count,
-      'date': newInven.date,
-    },);
+    try {
+      _isLoading = true;
+      _errorMessage = null;
+      notifyListeners();
 
-    notifyListeners();
+      final id = await DBHelper.instance.insert(newItem.toMap());
+      if (id > 0) {
+        await fetchInventoryItems();
+        return true;
+      } else {
+        _errorMessage = "Failed to add item to database.";
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      _errorMessage = "Error adding item: $e";
+      notifyListeners();
+      return false;
+    } finally {
+      if (isLoading) {
+        _isLoading = false;
+        notifyListeners();
+      }
+    }
   }
 
-  Future updateTitle(String id, String title) async {
+  Future<bool> updateInventoryItem(InvenModel itemToUpdate) async {
+    try {
+      _isLoading = true;
+      _errorMessage = null;
+      notifyListeners();
 
-    DBHelper.update(
-      DBHelper.inven,
-      'title',
-      title,
-      id,
-    );
-    notifyListeners();
+      final rowsAffected = await DBHelper.instance.update(itemToUpdate.id, itemToUpdate.toMap());
+      if (rowsAffected > 0) {
+        await fetchInventoryItems();
+        return true;
+      } else {
+        _errorMessage = "Failed to update item (item not found or no change).";
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      _errorMessage = "Error updating item: $e";
+      notifyListeners();
+      return false;
+    } finally {
+      if (isLoading) {
+        _isLoading = false;
+        notifyListeners();
+      }
+    }
   }
 
-  Future updateCount(String id, String count) async {
-
-    DBHelper.update(
-      DBHelper.inven,
-      'count',
-      count,
-      id,
-    );
-    notifyListeners();
+  // update specifics
+  Future<bool> updateItemTitle(String id, String newTitle) async {
+    final index = invenItems.indexWhere((item) => item.id == id);
+    if (index == -1) {
+      _errorMessage = "Item not found to update title.";
+      notifyListeners();
+      return false;
+    }
+    final updatedItem = invenItems[index].copyWith(title: newTitle);
+    return await updateInventoryItem(updatedItem);
+  }
+  Future<bool> updateItemCount(String id, int newCount) async {
+    final index = invenItems.indexWhere((item) => item.id == id);
+    if (index == -1) {
+      _errorMessage = "Item not found to update count.";
+      notifyListeners();
+      return false;
+    }
+    final updatedItem = invenItems[index].copyWith(count: newCount);
+    return await updateInventoryItem(updatedItem);
+  }
+  Future<bool> updateItemDate(String id, DateTime newDate) async {
+    final index = invenItems.indexWhere((item) => item.id == id);
+    if (index == -1){
+      _errorMessage = "Item not found to update date.";
+      notifyListeners();
+      return false;
+    }
+    final updatedItem = invenItems[index].copyWith(date: newDate);
+    return await updateInventoryItem(updatedItem);
   }
 
-  Future updateDate(String id, String date) async {
+  Future<bool> deleteInventoryItemById(String id) async {
+    try {
+      _isLoading = true;
+      _errorMessage = null;
+      notifyListeners();
 
-    DBHelper.update(
-      DBHelper.inven,
-      'date',
-      date,
-      id,
-    );
-    notifyListeners();
+      final rowsAffected = await DBHelper.instance.deleteById(id);
+      if (rowsAffected > 0) {
+        await fetchInventoryItems();
+        return true;
+      } else {
+        _errorMessage = "Failed to delete item (item not found).";
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      _errorMessage = "Error deleting item: $e";
+      notifyListeners();
+      return false;
+    } finally {
+      if (isLoading) {
+        _isLoading = false;
+        notifyListeners();
+      }
+    }
   }
 
-  Future deleteById(id) async {
+  Future<bool> clearInventoryTable() async {
+    try {
+      _isLoading = true;
+      _errorMessage = null;
+      notifyListeners();
 
-    DBHelper.deleteById(
-      DBHelper.inven,
-      'id',
-      id,
-    );
-    notifyListeners();
-  }
-
-  Future deleteTable() async {
-
-    DBHelper.deleteTable(DBHelper.inven);
-    invenItem.clear();
-    notifyListeners();
+      final rowsAffected = await DBHelper.instance.deleteTable();
+      invenItems.clear();
+      return true;
+    } catch (e) {
+      _errorMessage = "Error clearing inventory table: $e";
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 }

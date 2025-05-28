@@ -2,90 +2,105 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 
 class DBHelper {
+  static const String _databaseName = 'inven.db';
+  static const int _databaseVersion = 1;
 
-  static const inven='inven';
+  static const String tableInventory = 'inven';
+  static const String columnId = 'id';
+  static const String columnTitle = 'title';
+  static const String columnCount = 'count';
+  static const String columnDate = 'date';
 
-  static Future<Database>database()async{
+  DBHelper._privateConstructor();
+  static final DBHelper instance = DBHelper._privateConstructor();
 
+  // Only have a single app-wide reference to the database
+  static Database? _database;
+  Future<Database> get database async{
+    if (_database != null) return _database!;
+    _database = await _initDatabase();
+    return _database!;
+  }
+
+  // This opens the database (and creates it if it doesn't exist)
+  Future<Database> _initDatabase() async {
     final dbPath = await getDatabasesPath();
+    final path = join(dbPath, _databaseName);
 
     return await openDatabase(
-
-      join(dbPath, 'inven.db'),
-      onCreate: (db, version) {
-        db.execute("CREATE TABLE IF NOT EXISTS $inven(id TEXT PRIMARY KEY ,"
-          " title TEXT,"
-          " count INTEGER CHECK(count >= 0), "
-          " date TEXT)");
-      },
-
-      version: 1,
+      path,
+      version: _databaseVersion,
+      onCreate: _onCreate,
     );
   }
 
-  static Future<List<Map<String, dynamic>>>selectAll(String table)async{
-
-    final db=await DBHelper.database();
-
-    return db.query(table);
+  // SQL code to create the database table
+  Future<void> _onCreate(Database db, int version) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS$tableInventory (
+        $columnId TEXT PRIMARY KEY,
+        $columnTitle TEXT,
+        $columnCount INTEGER CHECK($columnCount >= 0),
+        $columnDate TEXT
+      )
+    ''');
   }
 
-  static Future<List<Map<String, dynamic>>>search(String table, String searchText) async {
-    final db = await DBHelper.database();
-
-    return db.query(table, where: 'title LIKE ?', whereArgs: ['%$searchText%']);
+  // --- Helper Methods ---
+  Future<List<Map<String, dynamic>>> selectAll() async {
+    final db = await instance.database;
+    return db.query(tableInventory);
   }
 
-  static Future insert(String table, Map<String, Object>data) async {
+  Future<List<Map<String, dynamic>>> search(String searchText) async {
+    final db = await instance.database;
+    return db.query(
+      tableInventory,
+      where: '$columnTitle LIKE ?',
+      whereArgs: ['%$searchText%'],
+    );
+  }
 
-    final db = await DBHelper.database();
-
+  Future<int> insert(Map<String, dynamic> data) async {
+    final db = await instance.database;
     return db.insert(
-      table,
+      tableInventory,
       data,
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
 
-  static Future update(
-    String tableName,
-    String columnName,
-    String value,
-    String id
-  ) async {
-
-    final db = await DBHelper.database();
-
+  Future<int> update(String id, Map<String, dynamic> row) async {
+    final db = await instance.database;
     return db.update(
-      tableName,
-      {columnName:value},
-      where: 'id = ?',
-      whereArgs: [id]
+      tableInventory,
+      row,
+      where: '$columnId = ?',
+      whereArgs: [id],
     );
   }
-
-  static Future deleteById(
-      String tableName,
-      String columnName,
-      String id
-      ) async {
-
-    final db = await DBHelper.database();
-
-    return db.delete(
-      tableName,
-      where: '$columnName = ?',
+  // optional update a single column:
+  Future<int> updateSingleColumn(String id, String columnName, dynamic value) async {
+    final db = await instance.database;
+    return db.update(
+      tableInventory,
+      {columnName: value},
+      where: '$columnId = ?',
       whereArgs: [id],
     );
   }
 
-  static Future deleteTable(String tableName) async {
-
-    final db = await DBHelper.database();
-
-    return db.rawQuery('DELETE FROM $tableName');
-
+  Future<int> deleteById(String id) async {
+    final db = await instance.database;
+    return db.delete(
+      tableInventory,
+      where: '$columnId = ?',
+      whereArgs: [id],
+    );
   }
 
-
+  Future<int> deleteTable() async {
+    final db = await instance.database;
+    return db.delete(tableInventory);
+  }
 }
