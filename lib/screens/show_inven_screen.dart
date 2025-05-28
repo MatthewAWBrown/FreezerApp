@@ -1,338 +1,314 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-//import 'package:flutter_reorderable_list/flutter_reorderable_list.dart';
-
 import '../provider/inven_provider.dart';
-import 'add_item_screen.dart';
-import 'edit_item_screen.dart';
+import '../model/inven_model.dart';
 
 class ShowInvenScreen extends StatefulWidget {
-  const ShowInvenScreen({super.key});
+   const ShowInvenScreen({super.key});
 
   @override
   State<ShowInvenScreen> createState() => _ShowInvenScreenState();
 }
 
 class _ShowInvenScreenState extends State<ShowInvenScreen> {
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<InvenProvider>(context, listen: false).fetchInventoryItems();
+    });
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    final provider = Provider.of<InvenProvider>(context, listen: false);
+    if(_searchController.text.isEmpty) {
+      provider.fetchInventoryItems();
+    } else {
+      provider.searchInventory(_searchController.text);
+    }
+  }
+
+  Future<void> _showAddItemDialog({InvenModel? itemToEdit}) async {
+    final provider = Provider.of<InvenProvider>(context, listen: false);
+    final titleController = TextEditingController(text: itemToEdit?.title ?? '');
+    final countController = TextEditingController(text: itemToEdit?.count.toString() ?? '');
+    DateTime selectedDate = itemToEdit?.date ?? DateTime.now();
+
+    final isEditing = itemToEdit != null;
+
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) {
+        // use a StatefulWidget for dialog content if you need to manage date picker state locally
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text(isEditing ? 'Edit Item' : 'Add New Item'),
+              content: SingleChildScrollView(
+                child: ListBody(
+                  children: <Widget>[
+                    TextField(
+                      controller: titleController,
+                      decoration: const InputDecoration(hintText: 'Item Title'),
+                    ),
+                    TextField(
+                      controller: countController,
+                      decoration: const InputDecoration(hintText: "Count"),
+                      keyboardType: TextInputType.number,
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        Expanded(child: Text("Date: ${selectedDate.toLocal().toString().split(' ')[0]}")),
+                        TextButton(
+                          child: const Text('Select Date'),
+                          onPressed: () async {
+                            final DateTime? picked = await showDatePicker(
+                              context: dialogContext,
+                              initialDate: selectedDate,
+                              firstDate: DateTime(2000),
+                              lastDate: DateTime(2101),
+                            );
+                            if (picked != null && picked != selectedDate) {
+                              setDialogState(() {
+                                selectedDate = picked;
+                              });
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              actions: <Widget>[
+                TextButton(
+                  child: const Text('Cancel'),
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop();
+                  },
+                ),
+                TextButton(
+                  child: Text(isEditing ? 'Save' : 'Add'),
+                  onPressed: () async {
+                    final title = titleController.text;
+                    final count = int.tryParse(countController.text) ?? 0;
+
+                    if (title.isEmpty) {
+                      //TODO: Handle error
+                      return;
+                    }
+
+                    bool success;
+                    if(isEditing) {
+                      final updatedItem = itemToEdit.copyWith(
+                        title: title,
+                        count: count,
+                        date: selectedDate,
+                      );
+                      success = await provider.updateInventoryItem(updatedItem);
+                    } else {
+                      success = await provider.addInventoryItem(
+                        title: title,
+                        count: count,
+                        date: selectedDate,
+                      );
+                    }
+
+                    if(context.mounted) { // Check if widget is still in the tree
+                      Navigator.of(dialogContext).pop(); // Close dialog
+                      if (!success) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(provider.errorMessage ?? 'Operation failed')),
+                        );
+                      }
+                    }
+                  },
+                ),
+              ],
+            );
+          }
+        );
+      }
+    );
+  }
+
+  Future<void> _confirmDelete(String itemId, String itemTitle) async {
+    final provider = Provider.of<InvenProvider>(context, listen: false);
+    return showDialog<void>(
+      context: context,
+      builder: (BuildContext dialogContext){
+        return AlertDialog(
+          title: const Text('Confirm Delete'),
+          content: Text('Are you sure you want to delete "$itemTitle"?'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () => Navigator.of(dialogContext).pop(),
+            ),
+            TextButton(
+              child: const Text('Delete'),
+              onPressed: () async {
+                Navigator.of(dialogContext).pop(); // Close dialog first
+                bool success = await provider.deleteInventoryItemById(itemId);
+                if(!success && context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(provider.errorMessage ?? 'Failed to delete')),
+                  );
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-
-    TextEditingController searchController = TextEditingController();
-
-    final width = MediaQuery.of(context).size.width;
-    final height = MediaQuery.of(context).size.height;
-    final invenP = Provider.of<InvenProvider>(context, listen: false);
-
-    FocusNode focusNode = FocusNode();
-
+    // Use Consumer to react to changes in InvenProvider
     return Scaffold(
-      floatingActionButton: FloatingActionButton(
-        child: const Icon(Icons.add),
-        onPressed: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (context) => AddItemScreen()),
-          );
-        },
-      ),
       appBar: AppBar(
         title: const Text('Freezer Inventory'),
         actions: [
           IconButton(
-            onPressed: () {
-              showDialog(
-                  useSafeArea: true,
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    scrollable: true,
-                    title: const Text('Delete All'),
-                    content: const Text('Do you want to delete all data?'),
-                    actions: [
-                      Row(
-                        children: [
-                          Expanded(
-                              child: Padding(
-                                padding: EdgeInsets.all(width*0.02),
-                                child: ElevatedButton(
-                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.white),
-                                  onPressed: () async {
-                                    await invenP.clearInventoryTable();
-                                    Navigator.pop(context);
-                                  }, child: Text('Yes',
-                                    style: TextStyle(
-                                    color: Theme.of(context).primaryColor)
-                                ),
-                                ),
-                              )
-                          ),
-                          Expanded(
-                            child: Padding(
-                              padding: EdgeInsets.all(width*0.02),
-                              child: ElevatedButton(
-                                onPressed: () {
-                                  Navigator.pop(context);
-                                }, child: Text(
-                                'No',
-                                style: TextStyle(
-                                  color: Theme.of(context).primaryColorLight,
-                                ),
-                              ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      )
-                    ],
-                  ),);
+            icon: const Icon(Icons.delete_sweep),
+            tooltip: 'Clear All Items',
+            onPressed: () async {
+              final provider = Provider.of<InvenProvider>(context, listen: false);
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Confirm Clear'),
+                  content: const Text('Are you sure you want to delete ALL items? This cannot be undone.'),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+                    TextButton(
+                      onPressed: () => Navigator.of(ctx).pop(true),
+                      child: const Text('Clear All', style: TextStyle(color: Colors.red)),
+                    ),
+                  ],
+                ),
+              );
+              if (confirm == true) {
+                await provider.clearInventoryTable();
+              }
             },
-            icon: const Icon(
-              //Icons.menu,
-              Icons.delete_forever_outlined,
-              color: Colors.white,
-            )
           ),
         ],
       ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                labelText: 'Search Items',
+                hintText: 'Enter item title...',
+                prefixIcon: const Icon(Icons.search),
+                border: const OutlineInputBorder(),
+                suffixIcon: _searchController.text.isNotEmpty ? IconButton(
+                  icon: const Icon(Icons.clear),
+                  onPressed: () {
+                    _searchController.clear();
+                  },)
+                    : null,
+                ),
+              ),
+            ),
+          Expanded(
+            child: Consumer<InvenProvider>(
+              builder: (context, provider, child) {
+                if (provider.isLoading && provider.invenItems.isEmpty) { // Show loading only if the list is empty initially
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (provider.errorMessage != null && provider.invenItems.isEmpty){
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Text(
+                        'Error: ${provider.errorMessage}\nPull down to refresh.',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  );
+                }
 
-      body:
-         Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: TextField(
-                  focusNode: focusNode,
-                  controller: searchController,
-                  decoration: const InputDecoration(
-                    prefixIcon: Icon(Icons.search),
-                    hintText: 'Search...'
-                  ),
-                  onChanged: (value) {
-                    // Handle search text changes
-                    invenP.searchInventory(value);
-                  },
-                ),
-              ),
-              Expanded(
-                child: GestureDetector(
-                  onTap: () {
-                    focusNode.unfocus();
-                  },
-                  child: FutureBuilder(
-                  future: Provider.of<InvenProvider>(context, listen: false).selectData(),
-                  builder: (context, snapShot) {
-                    if (snapShot.connectionState == ConnectionState.done) {
-                      return Consumer<InvenProvider>(
-                        builder: (context, invenProvider, child) {
-                          return invenProvider.invenItem.isNotEmpty?ListView.builder(
-                            itemCount: invenProvider.invenItem.length,
-                            itemBuilder: (context, index) {
-                              final helperValue = invenProvider.invenItem[index];
-                              return Dismissible(
-                                key: ValueKey(helperValue.id),
-                                background: Container(
-                                  margin: EdgeInsets.all(width*0.01),
-                                  padding: EdgeInsets.all(width*0.03),
-                                  decoration: BoxDecoration(
-                                    color: Colors.green,
-                                    borderRadius: BorderRadius.circular(width*0.03),
-                                  ),
-                                  alignment: Alignment.centerLeft,
-                                  height: height*0.02,
-                                  width: width,
-                                  child: const Icon(
-                                    Icons.edit,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                                secondaryBackground: Container(
-                                  padding: EdgeInsets.all(width*0.03),
-                                  margin: EdgeInsets.all(width*0.01),
-                                  width: width,
-                                  height: height*0.02,
-                                  decoration: BoxDecoration(
-                                    color: Colors.red,
-                                    borderRadius: BorderRadius.circular(width*0.03),
-                                  ),
-                                  alignment: Alignment.centerRight,
-                                  child: const Icon(
-                                    Icons.delete_forever_outlined,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                                confirmDismiss: (DismissDirection direction) async {
-                                  if(direction == DismissDirection.startToEnd) {
-                                    return Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                          builder: (context) => EditItemScreen(
-                                            id: helperValue.id,
-                                            title: helperValue.title,
-                                            count: helperValue.count,
-                                            date: helperValue.date
-                                          ),
-                                      )
-                                    );
-                                  } else {
-                                    bool deleteConfirmed = await showDialog(
-                                      useSafeArea: true,
-                                      context: context,
-                                      builder: (context) => AlertDialog(
-                                        scrollable: true,
-                                        title: const Text('Delete'),
-                                        content: const Text('Do you want to delete this item?'),
-                                        actions: [
-                                          ElevatedButton(
-                                              onPressed: (){
-                                                invenProvider.deleteById(helperValue.id);
-                                                invenProvider.invenItem.remove(helperValue);
-                                                Navigator.pop(context);
-                                              },
-                                              child: Text('Yes')
-                                          ),
-                                          ElevatedButton(
-                                            onPressed: (){
-                                              Navigator.pop(context);
-                                            },
-                                            child: Text('No')
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                    return deleteConfirmed;
-                                  }
-                                },
-                                child: Card(
-                                  child: ListTile(
-                                    style: ListTileStyle.drawer,
-                                    leading: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        GestureDetector(
-                                          onLongPress: () async{
-                                            //TODO: Handle reorder logic
-                                          },
-                                          child: const Icon(
-                                            Icons.reorder,
-                                          ),
-                                        )
-                                      ],
-                                    ),
-                                    title: Text(
-                                      helperValue.title,
-                                      style: const TextStyle(
-                                        fontSize: 18.0,
-                                      ),
-                                    ),
-                                    subtitle: Text(
-                                      helperValue.date
-                                    ),
-                                    // trailing: Text(
-                                    //   helperValue.date
-                                    // ),
-                                    trailing: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        GestureDetector(
-                                          onTap: () async {
-                                            int currentCount = int.tryParse(helperValue.count) ?? 0;
-                                            if (currentCount > 0) {
-                                              helperValue.count = (currentCount - 1).toString();
-                                              await invenProvider.updateCount(helperValue.id, helperValue.count);
-                                              setState(() {
-                                                // idk ¯\_(ツ)_/¯
-                                                helperValue.count;
-                                              });
-                                            } else if (currentCount == 0) {
-                                              showDialog(
-                                                useSafeArea: true,
-                                                context: context,
-                                                builder: (context) => AlertDialog(
-                                                  scrollable: true,
-                                                  title: const Text('Delete'),
-                                                  content: const Text('Do you want to delete this item?'),
-                                                  actions: [
-                                                    ElevatedButton(
-                                                        onPressed: (){
-                                                          invenProvider.deleteById(helperValue.id);
-                                                          invenProvider.invenItem.remove(helperValue);
-                                                          Navigator.pop(context);
-                                                        },
-                                                        child: Text('Yes')
-                                                    ),
-                                                    ElevatedButton(
-                                                        onPressed: (){
-                                                          Navigator.pop(context);
-                                                        },
-                                                        child: Text('No')
-                                                    ),
-                                                  ],
-                                                ),
-                                              );
-                                            }
-                                          },
-                                            child: const Icon(
-                                                Icons.exposure_minus_1_outlined,
-                                              color: Colors.red,
-                                            )
-                                        ),
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(horizontal: 25.0),
-                                          child: Text(
-                                            helperValue.count,
-                                            style: const TextStyle(
-                                              fontSize: 18.0,
-                                            ),
-                                          ),
-                                        ),
-                                        GestureDetector(
-                                          onTap: () async {
-                                            int currentCount = int.tryParse(helperValue.count) ?? 0;
-                                            if (currentCount >= 0) {
-                                              helperValue.count = (currentCount + 1).toString();
-                                              await invenProvider.updateCount(helperValue.id, helperValue.count);
-                                              setState(() {
-                                                helperValue.count;
-                                              });
-                                            }
-                                          },
-                                            child: const Icon(
-                                                Icons.exposure_plus_1_outlined,
-                                              color: Colors.green,
-                                            )
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                          ): const Center(
-                            child: Padding(
-                              padding: EdgeInsets.only(bottom: 180.0),
-                              child: Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 20.0),
-                                child: Text(
-                                  'The freezer is empty and beans are hungry',
-                                  style: TextStyle(
-                                    color: Colors.black,
-                                    fontSize: 35.0,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
+                if (provider.invenItems.isEmpty){
+                  return Center(
+                    child: Text(
+                      _searchController.text.isNotEmpty
+                          ? 'No items found for "${_searchController.text}".'
+                          : 'The freezer is empty and the beans are hungry\nTap the "+" button to add one!',
+                      textAlign: TextAlign.center,
+                    ),
+                  );
+                }
+
+                //TODO: Display a less intrusive loading indicator for subsequent loads/searches
+                if(provider.isLoading && provider.invenItems.isNotEmpty) {
+                  return const Center(child: LinearProgressIndicator());
+                }
+
+                return RefreshIndicator(
+                  onRefresh: () => provider.fetchInventoryItems(),
+                  child: ListView.builder(
+                    itemCount: provider.invenItems.length,
+                    itemBuilder: (context, index) {
+                      final item = provider.invenItems[index];
+                      return Card(
+                        margin: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                        child: ListTile(
+                          title: Text(item.title),
+                          subtitle: Text(
+                            'Count: ${item.count} - Date: ${item.date.toLocal().toString().split(' ')[0]}'
+                          ),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.edit, color: Colors.blue),
+                                tooltip: 'Edit item',
+                                onPressed: () => _showAddItemDialog(itemToEdit: item),
                               ),
-                            ),
-                          );
-                        }
+                              IconButton(
+                                icon: const Icon(Icons.delete, color: Colors.redAccent),
+                                tooltip: 'Delete Item',
+                                onPressed: () => _confirmDelete(item.id, item.title),
+                              ),
+                            ],
+                          ),
+                          onTap: () {
+                            // TODO: Navigate to detail Screen
+                            // Navigator.push(context, MaterialPageRoute(builder: (_) => ItemDetailScreen(item: item)));
+                          },
+                        ),
                       );
-                    } else {
-                      return Center(
-                        child: CircularProgressIndicator(),
-                      );
-                    }
-                  }
-      ),
-                ),
-              ),
-            ],
+                    },
+                  ),
+                );
+              },
+            ),
           ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showAddItemDialog(),
+        tooltip: 'Add Item',
+        child: const Icon(Icons.add),
+      ),
     );
   }
 }
