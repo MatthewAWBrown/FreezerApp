@@ -273,20 +273,54 @@ class _ShowInvenScreenState extends State<ShowInvenScreen> {
                         child: ListTile(
                           title: Text(item.title),
                           subtitle: Text(
-                            'Count: ${item.count} - Date: ${item.date.toLocal().toString().split(' ')[0]}'
+                            'Count: ${item.count}\nDate: ${item.date.toLocal().toString().split(' ')[0]}'
                           ),
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
+                              // Decrement Button
+                              IconButton(
+                                icon: const Icon(Icons.remove_circle_outline, color: Colors.orange),
+                                tooltip: 'Decrement Count',
+                                iconSize: 20,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                                onPressed: () async {
+                                  bool success = await provider.decrementItemCount(item.id);
+                                  if(!success && context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text(provider.errorMessage ?? 'Failed to decrement')),
+                                    );
+                                  }
+                                },
+                              ),
+                              // Edit button
                               IconButton(
                                 icon: const Icon(Icons.edit, color: Colors.blue),
                                 tooltip: 'Edit item',
                                 onPressed: () => _showAddItemDialog(itemToEdit: item),
                               ),
+                              // delete button
                               IconButton(
                                 icon: const Icon(Icons.delete, color: Colors.redAccent),
                                 tooltip: 'Delete Item',
                                 onPressed: () => _confirmDelete(item.id, item.title),
+                              ),
+                              // Increment Button
+                              IconButton(
+                                icon: const Icon(Icons.add_circle_outline, color: Colors.green),
+                                tooltip: 'Increment Count.',
+                                iconSize: 20,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                                onPressed: () async {
+                                  bool success = await provider.incrementItemCount(item.id);
+                                  if (!success && context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text(provider.errorMessage ?? 'Failed to increment.')),
+                                    );
+                                  }
+                                }
                               ),
                             ],
                           ),

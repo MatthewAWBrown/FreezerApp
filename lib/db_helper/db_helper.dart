@@ -37,7 +37,7 @@ class DBHelper {
   // SQL code to create the database table
   Future<void> _onCreate(Database db, int version) async {
     await db.execute('''
-      CREATE TABLE IF NOT EXISTS$tableInventory (
+      CREATE TABLE IF NOT EXISTS $tableInventory (
         $columnId TEXT PRIMARY KEY,
         $columnTitle TEXT,
         $columnCount INTEGER CHECK($columnCount >= 0),

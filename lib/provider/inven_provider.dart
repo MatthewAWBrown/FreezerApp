@@ -151,6 +151,33 @@ class InvenProvider extends ChangeNotifier {
     final updatedItem = invenItems[index].copyWith(count: newCount);
     return await updateInventoryItem(updatedItem);
   }
+  Future<bool> incrementItemCount(String itemId) async {
+    final index = invenItems.indexWhere((item) => item.id == itemId);
+    if (index == -1) {
+      _errorMessage = "Item not found to increment count.";
+      notifyListeners();
+      return false;
+    }
+    final currentItem = invenItems[index];
+    final updateItem = currentItem.copyWith(count: currentItem.count + 1);
+    return await updateInventoryItem(updateItem);
+  }
+  Future<bool> decrementItemCount(String itemId) async {
+    final index = invenItems.indexWhere((item) => item.id == itemId);
+    if (index == -1) {
+      _errorMessage = "Item not found to decrement count.";
+      notifyListeners();
+      return false;
+    }
+    final currentItem = invenItems[index];
+    if (currentItem.count <= 0) {
+      _errorMessage = "Count cannot be less than 0.";
+      notifyListeners();
+      return false;
+    }
+    final updatedItem = currentItem.copyWith(count: currentItem.count - 1);
+    return await updateInventoryItem(updatedItem);
+  }
   Future<bool> updateItemDate(String id, DateTime newDate) async {
     final index = invenItems.indexWhere((item) => item.id == id);
     if (index == -1){
